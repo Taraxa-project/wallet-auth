@@ -35,8 +35,8 @@ export default class AuthController {
     description: 'Nonce generation successful',
   })
   @Get('/:id')
-  async getNonce(@Param('id') id: number): Promise<number> {
-    return (await this.nonceService.getNonce(id)).nonce;
+  async getNonce(@Param('id') account: string): Promise<string> {
+    return (await this.nonceService.getNonce(account)).nonce;
   }
 
   @ApiCreatedResponse({
@@ -50,6 +50,6 @@ export default class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post()
   async loginOrRegister(@Body() loginDto: LoginDto) {
-    this.authService.loginOrRegister(loginDto);
+    return await this.authService.loginOrRegister(loginDto);
   }
 }

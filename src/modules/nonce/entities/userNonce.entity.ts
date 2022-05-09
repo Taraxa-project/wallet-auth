@@ -6,8 +6,8 @@ export default class UserNonceEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
-  nonce: number;
+  @Column({ nullable: false })
+  nonce: string;
 
   @ManyToOne(() => UserEntity, (user) => user.nonces)
   user: UserEntity;

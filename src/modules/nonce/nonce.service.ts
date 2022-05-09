@@ -18,17 +18,14 @@ export default class NonceService {
     return await this.userRepository.save(user);
   }
 
-  public async getNonce(id: number): Promise<UserNonceEntity> {
-    if (!id) throw new Error('User id is required');
-    const user = await this.userRepository.findOneBy({
-      id,
-    });
+  public async getNonce(account: string): Promise<UserNonceEntity> {
+    const user = await this.userRepository.findOneBy({ address: account });
     if (!user) throw new Error('User not found');
     let exists = true;
-    let nonceGenerated = -1;
+    let nonceGenerated = '-1';
     let newNonce: UserNonceEntity;
     while (exists) {
-      nonceGenerated = await randomNumber(1, 1000000);
+      nonceGenerated = `0x${(await randomNumber(1, 1000000)).toString(16)}`;
       const nonce = await this.userNonceRepository.findOneBy({
         id: user.id,
         nonce: nonceGenerated,
