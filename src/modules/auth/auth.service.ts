@@ -22,6 +22,21 @@ export class AuthService {
     private readonly authConfig: ConfigType<typeof auth>,
     private jwtService: JwtService,
   ) {}
+  public async authorizeAddress(address: string): Promise<boolean> {
+    try {
+      const user = await this.userRepository.findOneBy({ address });
+      if (!user) {
+        const newUser = new UserEntity();
+        newUser.address = address;
+        const finalizedUser = await this.userRepository.save(newUser);
+        if (!finalizedUser) throw new Error('User creation failed');
+      }
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
   public async loginOrRegister(login: LoginDto): Promise<JwtInterface> {
     const { address, signature } = login;
 
@@ -60,6 +75,11 @@ export class AuthService {
   async getUser(id: number): Promise<AuthEntity> {
     return await this.authRepository.findOneBy({
       id,
+    });
+  }
+  async getUserByAddress(address: string): Promise<AuthEntity> {
+    return await this.authRepository.findOneBy({
+      address,
     });
   }
 }
