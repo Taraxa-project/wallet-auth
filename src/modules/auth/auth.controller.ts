@@ -34,8 +34,8 @@ export default class AuthController {
     status: 200,
     description: 'Nonce generation successful',
   })
-  @Get('/nonce/:id')
-  async getNonce(@Param('id') account: string): Promise<string> {
+  @Get('/nonce/:account')
+  async getNonce(@Param('account') account: string): Promise<string> {
     return (await this.nonceService.getNonce(account)).nonce;
   }
 
@@ -75,6 +75,7 @@ export default class AuthController {
   @HttpCode(HttpStatus.OK)
   @Get('/:address')
   async getAddress(@Param('address') address: string): Promise<string> {
-    return (await this.authService.getUserByAddress(address)).address;
+    const user = await this.authService.getUserByAddress(address);
+    return user ? user.address : null;
   }
 }
