@@ -24,13 +24,24 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+[Nest](https://github.com/nestjs/nest) based wallet authorization service that uses verified random nonces for wallet-based logins.
 
 ## Installation
 
 ```bash
 $ npm install
 ```
+
+## Requirements
+
+- [ ] Postgres running on your desired port.
+- [ ] Postgres user configured for DB connectivity.
+
+Configure your local setup via providing a `.env` file (`.env.example` provided for inspiration).
+
+## Initialize
+
+To generate the database schema used switch the `synchronize: true` on in `src/app.module.ts`.
 
 ## Running the app
 
@@ -58,16 +69,6 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
-## Support
+## Docs
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](LICENSE).
+Please consult our documentation [here](./docs/flows.md).
