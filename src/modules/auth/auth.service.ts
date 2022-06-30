@@ -1,85 +1,89 @@
-import { compare } from 'bcryptjs';
-import { Repository } from 'typeorm';
-import { Inject, Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotAcceptableException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LoginDto } from './dto/login.dto';
-import { AuthEntity } from './entity/auth.entity';
-import { JwtInterface } from './interface/jwt.interface';
-import { JwtPayloadInterface } from './interface/jwt-payload.interface';
-import { ConfigType } from '@nestjs/config';
+import { Repository } from 'typeorm';
+import { AddressDTO } from './dto/Address.dto';
+import { User } from './user.entity';
 import { JwtService } from '@nestjs/jwt';
-import auth from 'src/config/auth';
-import UserEntity from '../nonce/entities/user.entity';
+import { JWTPayload, JWTResponse } from './jwt-payload';
+import { AuthDTO } from './dto/Auth.dto';
+import * as ethUtil from 'ethereumjs-util';
 
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectRepository(AuthEntity)
-    private readonly authRepository: Repository<AuthEntity>,
-    @InjectRepository(UserEntity)
-    private readonly userRepository: Repository<UserEntity>,
-    @Inject(auth.KEY)
-    private readonly authConfig: ConfigType<typeof auth>,
-    private jwtService: JwtService,
+    @InjectRepository(User)
+    private repository: Repository<User>,
+    private readonly jwtService: JwtService,
   ) {}
-  public async authorizeAddress(address: string): Promise<boolean> {
-    try {
-      const user = await this.userRepository.findOneBy({ address });
-      if (!user) {
-        const newUser = new UserEntity();
-        newUser.address = address;
-        const finalizedUser = await this.userRepository.save(newUser);
-        if (!finalizedUser) throw new Error('User creation failed');
-      }
-      return true;
-    } catch (error) {
-      return false;
+
+  async login(addressDTO: AddressDTO): Promise<User | JWTResponse> {
+    const { publicAddress } = addressDTO;
+    const user = await this.findUser(publicAddress);
+    if (user) {
+      // Save nonce
+      await this.repository.update(user.id, {
+        nonce: user.nonce + 1,
+      });
+      return this.getToken(user);
     }
+    let newUser = new User();
+    newUser.publicAddress = addressDTO.publicAddress;
+    newUser.nonce = 1;
+    return await newUser.save();
   }
 
-  public async loginOrRegister(login: LoginDto): Promise<JwtInterface> {
-    const { address, signature } = login;
-
-    const user = await this.userRepository.findOneBy({ address });
+  async sign(authDTO: AuthDTO) {
+    const { publicAddress, signature } = authDTO;
+    const user = await this.findUser(publicAddress);
     if (!user) {
-      const newUser = new UserEntity();
-      newUser.address = address;
-      const finalizedUser = await this.userRepository.save(newUser);
-      if (!finalizedUser) throw new Error('User creation failed');
+      throw new NotFoundException('User not registered!');
+    }
+    const nonceBuffer = ethUtil.toBuffer(
+      ethUtil.fromUtf8(user.nonce.toString()),
+    );
+    const nonceHash = ethUtil.hashPersonalMessage(nonceBuffer);
+
+    let address: string;
+    try {
+      const { v, r, s } = ethUtil.fromRpcSig(signature);
+      address = ethUtil.bufferToHex(
+        ethUtil.pubToAddress(ethUtil.ecrecover(nonceHash, v, r, s)),
+      );
+    } catch (e) {
+      throw new NotAcceptableException('Invalid proof');
     }
 
-    const auth = await this.authRepository.findOneBy({ address, signature });
-    if (auth) throw new Error('Signature is already used');
-    const newAuth = new AuthEntity();
-    newAuth.address = address;
-    newAuth.signature = signature;
+    if (address.toLocaleLowerCase() !== publicAddress.toLocaleLowerCase()) {
+      throw new NotAcceptableException('Invalid proof');
+    }
 
-    return this.createToken(await this.authRepository.save(newAuth));
+    return this.getToken(user);
   }
-  public createToken(auth: AuthEntity): JwtInterface {
-    const { tokenExpiry } = this.authConfig;
 
-    const jwtUser: JwtPayloadInterface = {
-      id: auth.id,
-      address: auth.address,
-      signature: auth.signature,
+  async getMe(address: string): Promise<User> {
+    const user = await this.findUser(address);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
+  }
+
+  private async findUser(publicAddress: string): Promise<User> {
+    const user = this.repository.findOneBy({ publicAddress });
+    return user;
+  }
+
+  private async getToken(user: User): Promise<JWTResponse> {
+    const payload: JWTPayload = {
+      address: user.publicAddress,
+      nonce: user.nonce,
     };
-
     return {
-      token: {
-        accessToken: this.jwtService.sign(jwtUser),
-        expiresIn: tokenExpiry,
-      },
+      accessToken: this.jwtService.sign(payload),
     };
-  }
-  async getUser(id: number): Promise<AuthEntity> {
-    return await this.authRepository.findOneBy({
-      id,
-    });
-  }
-  async getUserByAddress(address: string): Promise<AuthEntity> {
-    return await this.authRepository.findOneBy({
-      address,
-    });
   }
 }

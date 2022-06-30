@@ -2,80 +2,56 @@ import {
   Body,
   Controller,
   Get,
-  HttpCode,
   HttpStatus,
-  Param,
   Post,
+  Query,
+  UseGuards,
+  ValidationPipe,
 } from '@nestjs/common';
-import {
-  ApiCreatedResponse,
-  ApiBadRequestResponse,
-  ApiTags,
-  ApiResponse,
-} from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
+import { ApiBearerAuth, ApiOkResponse, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { LoginDto } from './dto/login.dto';
-import NonceService from '../nonce/nonce.service';
+import { AddressDTO } from './dto/Address.dto';
+import { AuthDTO } from './dto/Auth.dto';
+import { GetAddress } from './get-address.decorator';
+import { JWTResponse } from './jwt-payload';
+import { User } from './user.entity';
 
 @ApiTags('auth')
-@Controller('auth')
-export default class AuthController {
-  constructor(
-    private readonly nonceService: NonceService,
-    private readonly authService: AuthService,
-  ) {}
+@Controller('/auth')
+export class AuthController {
+  constructor(private readonly service: AuthService) {}
 
-  @ApiCreatedResponse({
-    description: 'The nonce has been successfully created',
+  @Get()
+  @ApiOkResponse({
+    status: HttpStatus.OK,
+    description: 'Returns new user or token',
   })
-  @ApiBadRequestResponse({ description: 'Validation failed' })
-  @HttpCode(HttpStatus.OK)
-  @ApiResponse({
-    status: 200,
-    description: 'Nonce generation successful',
-  })
-  @Get('/nonce/:account')
-  async getNonce(@Param('account') account: string): Promise<string> {
-    return (await this.nonceService.getNonce(account)).nonce;
+  public login(
+    @Query(ValidationPipe) addressDTO: AddressDTO,
+  ): Promise<User | JWTResponse> {
+    return this.service.login(addressDTO);
   }
 
-  @ApiCreatedResponse({
-    description: 'Login/Registration succeeded',
-  })
-  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @Post('sign')
   @ApiResponse({
-    status: 200,
-    description: 'Login successful',
+    status: HttpStatus.OK,
+    type: User,
+    description: 'Returns a new created pool',
   })
-  @HttpCode(HttpStatus.OK)
-  @Post()
-  async loginOrRegister(@Body() loginDto: LoginDto) {
-    return await this.authService.loginOrRegister(loginDto);
+  public async sign(@Body() authDTO: AuthDTO): Promise<JWTResponse> {
+    return await this.service.sign(authDTO);
   }
 
-  @ApiCreatedResponse({
-    description: 'Address Authorization succeeded',
-  })
-  @ApiBadRequestResponse({ description: 'Invalid address' })
+  @Get('me')
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard('jwt'))
   @ApiResponse({
-    status: 200,
-    description: 'Authorization successful',
+    status: HttpStatus.OK,
+    type: User,
+    description: `Returns current user`,
   })
-  @HttpCode(HttpStatus.OK)
-  @Post('/:address')
-  async authorizeAddress(@Param('address') address: string): Promise<boolean> {
-    return await this.authService.authorizeAddress(address);
-  }
-
-  @ApiBadRequestResponse({ description: 'Unauthorized address' })
-  @ApiResponse({
-    status: 200,
-    description: 'Address authorized',
-  })
-  @HttpCode(HttpStatus.OK)
-  @Get('/:address')
-  async getAddress(@Param('address') address: string): Promise<string> {
-    const user = await this.authService.getUserByAddress(address);
-    return user ? user.address : null;
+  public async getMe(@GetAddress() address: string): Promise<User> {
+    return await this.service.getMe(address);
   }
 }
