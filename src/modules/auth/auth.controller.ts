@@ -27,20 +27,20 @@ export class AuthController {
     status: HttpStatus.OK,
     description: 'Returns new user or token',
   })
-  public login(
+  public getNonce(
     @Query(ValidationPipe) addressDTO: AddressDTO,
-  ): Promise<User | JWTResponse> {
-    return this.service.login(addressDTO);
+  ): Promise<User> {
+    return this.service.getNonce(addressDTO);
   }
 
-  @Post('sign')
+  @Post('login')
   @ApiResponse({
     status: HttpStatus.OK,
     type: User,
     description: 'Returns a new created pool',
   })
-  public async sign(@Body() authDTO: AuthDTO): Promise<JWTResponse> {
-    return await this.service.sign(authDTO);
+  public async login(@Body() authDTO: AuthDTO): Promise<JWTResponse> {
+    return await this.service.login(authDTO);
   }
 
   @Get('me')

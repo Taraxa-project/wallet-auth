@@ -20,15 +20,14 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async login(addressDTO: AddressDTO): Promise<User | JWTResponse> {
+  async getNonce(addressDTO: AddressDTO): Promise<User> {
     const { publicAddress } = addressDTO;
     const user = await this.findUser(publicAddress);
     if (user) {
-      // Save nonce
       await this.repository.update(user.id, {
         nonce: user.nonce + 1,
       });
-      return this.getToken(user);
+      return user;
     }
     let newUser = new User();
     newUser.publicAddress = addressDTO.publicAddress;
@@ -36,7 +35,7 @@ export class AuthService {
     return await newUser.save();
   }
 
-  async sign(authDTO: AuthDTO) {
+  async login(authDTO: AuthDTO) {
     const { publicAddress, signature } = authDTO;
     const user = await this.findUser(publicAddress);
     if (!user) {
