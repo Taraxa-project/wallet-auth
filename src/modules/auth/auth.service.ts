@@ -1,6 +1,5 @@
 import {
   Injectable,
-  NotAcceptableException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -10,7 +9,7 @@ import { User } from './user.entity';
 import { JwtService } from '@nestjs/jwt';
 import { JWTPayload, JWTResponse } from './jwt-payload';
 import { AuthDTO } from './dto/Auth.dto';
-import * as ethUtil from 'ethereumjs-util';
+import { verifyMessage } from 'ethers/lib/utils';
 
 @Injectable()
 export class AuthService {
@@ -24,9 +23,6 @@ export class AuthService {
     const { publicAddress } = addressDTO;
     const user = await this.findUser(publicAddress);
     if (user) {
-      await this.repository.update(user.id, {
-        nonce: user.nonce + 1,
-      });
       return user;
     }
     let newUser = new User();
@@ -41,25 +37,13 @@ export class AuthService {
     if (!user) {
       throw new NotFoundException('User not registered!');
     }
-    const nonceBuffer = ethUtil.toBuffer(
-      ethUtil.fromUtf8(user.nonce.toString()),
-    );
-    const nonceHash = ethUtil.hashPersonalMessage(nonceBuffer);
-
-    let address: string;
-    try {
-      const { v, r, s } = ethUtil.fromRpcSig(signature);
-      address = ethUtil.bufferToHex(
-        ethUtil.pubToAddress(ethUtil.ecrecover(nonceHash, v, r, s)),
-      );
-    } catch (e) {
-      throw new NotAcceptableException('Invalid proof');
-    }
-
+    const address = verifyMessage(`${user.nonce}`, signature);
     if (address.toLocaleLowerCase() !== publicAddress.toLocaleLowerCase()) {
-      throw new NotAcceptableException('Invalid proof');
+      throw new NotFoundException('Invalid proof');
     }
-
+    await this.repository.update(user.id, {
+      nonce: user.nonce + 1,
+    });
     return this.getToken(user);
   }
 
