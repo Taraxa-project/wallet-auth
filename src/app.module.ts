@@ -28,7 +28,7 @@ const WalletAuthTypeOrmModule = () => {
         type: 'postgres',
         url: process.env.DATABASE_URL,
         entities,
-        synchronize: !!process.env.TYPEORM_SYNC,
+        synchronize: false,
         autoLoadEntities: true,
         logging: ['info'],
       }
@@ -40,7 +40,7 @@ const WalletAuthTypeOrmModule = () => {
         password: process.env.DB_PASSWORD || 'postgres',
         database: process.env.DB_DATABASE || 'wallet',
         entities,
-        synchronize: !!process.env.TYPEORM_SYNC,
+        synchronize: false,
         autoLoadEntities: true,
         logging: ['info'],
       };
