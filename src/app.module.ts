@@ -1,38 +1,73 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config';
+import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import auth from './config/auth';
 import db, { generalConfig } from './config/db';
-import { AuthModule } from './modules/auth';
-import { NonceModule } from './modules/nonce/nonce.module';
+import { resolve } from 'path';
+import { existsSync } from 'fs';
+import { AuthModule } from './modules/auth/auth.module';
+
+const getEnvFilePath = () => {
+  const pathsToTest = ['../.env'];
+
+  for (const pathToTest of pathsToTest) {
+    const resolvedPath = resolve(__dirname, pathToTest);
+
+    if (existsSync(resolvedPath)) {
+      return resolvedPath;
+    }
+  }
+};
+
+export const entities: Function[] = [];
+
+const WalletAuthTypeOrmModule = () => {
+  let typeOrmOptions: TypeOrmModuleOptions;
+  const baseConnectionOptions: TypeOrmModuleOptions = process.env.DATABASE_URL
+    ? {
+        type: 'postgres',
+        url: process.env.DATABASE_URL,
+        entities,
+        synchronize: !!process.env.TYPEORM_SYNC,
+        autoLoadEntities: true,
+        logging: ['info'],
+      }
+    : {
+        type: 'postgres',
+        host: process.env.DB_HOST ?? 'localhost',
+        port: Number(process.env.DB_PORT) || 5432,
+        username: process.env.DB_USERNAME || 'postgres',
+        password: process.env.DB_PASSWORD || 'postgres',
+        database: process.env.DB_DATABASE || 'wallet',
+        entities,
+        synchronize: !!process.env.TYPEORM_SYNC,
+        autoLoadEntities: true,
+        logging: ['info'],
+      };
+
+  if (!!process.env.DATABASE_CERT) {
+    typeOrmOptions = {
+      ...baseConnectionOptions,
+      ssl: {
+        rejectUnauthorized: false,
+        ca: process.env.DATABASE_CERT,
+      },
+    };
+  } else {
+    typeOrmOptions = { ...baseConnectionOptions };
+  }
+  return TypeOrmModule.forRoot(typeOrmOptions);
+};
 
 @Module({
   imports: [
     ConfigModule.forRoot({
-      ignoreEnvFile: process.env.NODE_ENV === 'prod',
+      envFilePath: getEnvFilePath(),
       isGlobal: true,
       load: [generalConfig, db, auth],
     }),
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule.forFeature(db)],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get<string>('db.host') || '127.0.0.1',
-        port: configService.get<number>('db.port') || 5432,
-        username: configService.get<string>('db.user') || 'postgres',
-        password: configService.get<string>('db.pass') || 'postgres',
-        database: configService.get<string>('db.name') || 'postgres',
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true,
-        autoLoadEntities: true,
-      }),
-      inject: [ConfigService],
-    }),
+    WalletAuthTypeOrmModule(),
     AuthModule,
-    NonceModule,
   ],
-  controllers: [],
-  providers: [],
-  exports: [],
 })
 export class AppModule {}
