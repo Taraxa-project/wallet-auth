@@ -46,10 +46,12 @@ jobs:
             docker build --build-arg NODE_ENV=${ENV} -t wallet-api:${VERSION} .
       - run:
           name: Login into docker hub
+          shell: /bin/bash -eo pipefail
           command: |
             echo ${DOCKERHUB_PASS} | docker login -u taraxa --password-stdin
       - run:
           name: Tag images and push images
+          shell: /bin/bash -eo pipefail
           command: |
             if [ "${ENV}" == "prod" ]; then
               docker tag wallet-api:${VERSION} taraxa/wallet-api:${VERSION}
