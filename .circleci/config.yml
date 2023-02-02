@@ -1,0 +1,80 @@
+version: 2.1
+
+aliases:
+  - &config
+    docker:
+      - image: alpine:3.14
+  - &step_setup_remote_docker
+    setup_remote_docker:
+      version: 19.03.14
+      docker_layer_caching: true
+  - &step_install_deps
+    run:
+      name: Install dependencies
+      shell: /bin/sh -eo pipefail
+      command: |
+        apk add --update openssl openssh-client sudo git bash curl docker-cli
+  - &step_prepare_environment
+    run:
+      name: Prepare Environment
+      shell: /bin/bash -eo pipefail
+      command: |
+        if [ "${CIRCLE_BRANCH}" == "develop" ]; then
+          export ENV=stage
+          echo 'export ENV=stage' >> $BASH_ENV
+        elif [ "${CIRCLE_BRANCH}" == "main" ]; then
+          export ENV=prod
+          echo 'export ENV=prod' >> $BASH_ENV
+        else
+          echo 'Unknown branch' >&2
+          exit 1
+        fi
+        echo "export VERSION=$(git rev-parse --short HEAD)" >> $BASH_ENV
+
+jobs:
+  build-and-push-docker-image:
+    <<: *config
+    steps:
+      - *step_install_deps
+      - checkout
+      - *step_setup_remote_docker
+      - *step_prepare_environment
+      - run:
+          name: Build Docker image
+          shell: /bin/bash -eo pipefail
+          command: |
+            docker build --build-arg NODE_ENV=${ENV} -t wallet-api:${VERSION} .
+      - run:
+          name: Login into docker hub
+          command: |
+            echo ${DOCKERHUB_PASS} | docker login -u taraxa --password-stdin
+      - run:
+          name: Tag images and push images
+          command: |
+            if [ "${ENV}" == "prod" ]; then
+              docker tag wallet-api:${VERSION} taraxa/wallet-api:${VERSION}
+              docker tag wallet-api:${VERSION} taraxa/wallet-api:latest
+
+              docker push taraxa/wallet-api:${VERSION}
+              docker push taraxa/wallet-api:latest
+            else
+              docker tag wallet-api:${VERSION} taraxa/wallet-api:${VERSION}-rc
+              docker tag wallet-api:${VERSION} taraxa/wallet-api:latest-rc
+
+              docker push taraxa/wallet-api:${VERSION}-rc
+              docker push taraxa/wallet-api:latest-rc
+            fi
+
+workflows:
+  version: 2
+
+  build-and-package:
+    jobs:
+      - build-and-push-docker-image:
+          filters:
+            branches:
+              only:
+                - master
+                - develop
+          context:
+            - DOCKERHUB
