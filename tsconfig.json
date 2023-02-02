@@ -17,5 +17,7 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "esModuleInterop": true
-  }
+  },
+  "include": ["src/**/*", "test/**/*", "migrations/*", "data-source.ts"],
+  "exclude": ["node_modules", "dist"]
 }
