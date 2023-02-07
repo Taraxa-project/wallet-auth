@@ -6,20 +6,23 @@ dotenv.config();
 const getDataSourceOptions = (): DataSourceOptions => {
   return process.env.DATABASE_URL
     ? {
-        type: 'postgres',
-        url: process.env.DATABASE_URL,
-        ssl: {
-          rejectUnauthorized: false,
-        },
-      }
+      type: 'postgres',
+      url: process.env.DATABASE_URL,
+      ssl: {
+        rejectUnauthorized: false,
+      },
+    }
     : {
-        type: 'postgres',
-        host: process.env.DB_HOST || 'localhost',
-        port: Number(process.env.DB_PORT) || 5432,
-        username: process.env.DB_USERNAME || 'postgres',
-        password: process.env.DB_PASSWORD || 'postgres',
-        database: process.env.DB_DATABASE || 'wallet',
-      };
+      type: 'postgres',
+      host: process.env.DB_HOST || 'localhost',
+      port: Number(process.env.DB_PORT) || 5432,
+      username: process.env.DB_USERNAME || 'postgres',
+      password: process.env.DB_PASSWORD || 'postgres',
+      database: process.env.DB_DATABASE || 'wallet',
+      ssl: {
+        rejectUnauthorized: false,
+      },
+    };
 };
 
 const DataSourceConfig = new DataSource({
