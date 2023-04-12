@@ -53,7 +53,10 @@ export class AuthService {
   }
 
   private async findUser(publicAddress: string): Promise<User> {
-    const user = this.repository.findOneBy({ publicAddress });
+    if (!publicAddress) {
+      return;
+    }
+    const user = await this.repository.findOneBy({ publicAddress });
     return user;
   }
 
