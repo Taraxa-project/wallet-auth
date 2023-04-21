@@ -1,9 +1,12 @@
+import { Repository } from 'typeorm';
+
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+
 import { AddressDTO } from './dto/Address.dto';
 import { User } from './user.entity';
-import { JwtService } from '@nestjs/jwt';
 import { JWTPayload, JWTResponse } from './jwt-payload';
 import { AuthDTO } from './dto/Auth.dto';
 import { verifyMessage } from 'ethers/lib/utils';
@@ -14,18 +17,22 @@ export class AuthService {
     @InjectRepository(User)
     private repository: Repository<User>,
     private readonly jwtService: JwtService,
-  ) {}
+    private configService: ConfigService,
+  ) { }
 
-  async getNonce(addressDTO: AddressDTO): Promise<User> {
+  async getMessage(addressDTO: AddressDTO): Promise<{ message: string }> {
     const { publicAddress } = addressDTO;
-    const user = await this.findUser(publicAddress);
-    if (user) {
-      return user;
+    let user = await this.findUser(publicAddress);
+    if (!user) {
+      let user = new User();
+      user.publicAddress = addressDTO.publicAddress;
+      user.nonce = 1;
+      user = await user.save();
     }
-    let newUser = new User();
-    newUser.publicAddress = addressDTO.publicAddress;
-    newUser.nonce = 1;
-    return await newUser.save();
+
+    return {
+      message: this.getMessageSign(user),
+    }
   }
 
   async login(authDTO: AuthDTO) {
@@ -34,7 +41,7 @@ export class AuthService {
     if (!user) {
       throw new NotFoundException('User not registered!');
     }
-    const address = verifyMessage(`${user.nonce}`, signature);
+    const address = verifyMessage(this.getMessageSign(user), signature);
     if (address.toLocaleLowerCase() !== publicAddress.toLocaleLowerCase()) {
       throw new NotFoundException('Invalid proof');
     }
@@ -50,6 +57,14 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
     return user;
+  }
+
+  private getMessageSign(user: User): string {
+    return this.configService.get('auth.message')
+      .replaceAll('{domain}', 'localhost:3000')
+      .replaceAll('{from}', user.publicAddress)
+      .replaceAll('{nonce}', user.nonce.toString())
+      .replaceAll('{issuedAt}', new Date(user.updatedAt).toISOString());
   }
 
   private async findUser(publicAddress: string): Promise<User> {

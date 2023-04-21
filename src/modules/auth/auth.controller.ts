@@ -32,10 +32,10 @@ export class AuthController {
     status: HttpStatus.OK,
     description: 'Returns new user or token',
   })
-  public getNonce(
+  public getMessage(
     @Query(ValidationPipe) addressDTO: AddressDTO,
-  ): Promise<User> {
-    return this.service.getNonce(addressDTO);
+  ): Promise<{ message: string }> {
+    return this.service.getMessage(addressDTO);
   }
 
   @Post('login')
