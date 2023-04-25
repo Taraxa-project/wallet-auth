@@ -61,7 +61,10 @@ export class AuthService {
 
   private getMessageSign(user: User): string {
     return this.configService.get('auth.message')
-      .replaceAll('{domain}', 'localhost:3000')
+      .replaceAll('{domain}', this.configService.get('auth.domain'))
+      .replaceAll('{tos}', this.configService.get('auth.tos'))
+      .replaceAll('{chainId}', this.configService.get('auth.chainId'))
+      .replaceAll('{version}', this.configService.get('auth.version'))
       .replaceAll('{from}', user.publicAddress)
       .replaceAll('{nonce}', user.nonce.toString())
       .replaceAll('{issuedAt}', new Date(user.updatedAt).toISOString());
